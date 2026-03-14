@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>町内会班長あみだくじ</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<style>
+
+body{
+font-family:sans-serif;
+text-align:center;
+background:#f4f4f4;
+}
+
+.box{
+background:white;
+max-width:700px;
+margin:auto;
+padding:20px;
+border-radius:10px;
+}
+
+button{
+width:60px;
+height:40px;
+margin:4px;
+font-size:16px;
+}
+
+canvas{
+border:1px solid #ddd;
+margin-top:20px;
+}
+
+#players{
+margin-top:10px;
+font-size:14px;
+}
+
+#result{
+margin-top:20px;
+font-size:18px;
+}
+
+</style>
+
+</head>
+
+<body>
+<h1>役割あみだくじ</h1>
+<div class="box">
+<input id="name" placeholder="名前">
+<p>番号を選ぶ</p>
+<div id="buttons"></div>
+<p id="status"></p>
+<div id="players"></div>
+<canvas id="amida" width="600" height="500"></canvas>
+<br><br>
+<button onclick="reset()">リセット</button>
+<div id="result"></div>
+</div>
+
+<script>
+const MAX=10
+const STEPS=16
+
+const roles=[
+"司会","書記","会計","写真",
+"発表","資料作成","タイム係",
+"企画","補助","サポート"
+]
+
+const firebaseConfig={
+apiKey:"AIzaSyCVBY1Z0ta7al-brLKTQ6WyjDlLYk0fkDU",
+authDomain:"amida2.firebaseapp.com",
+databaseURL:"https://amida2-default-rtdb.firebaseio.com",
+projectId:"amida2"
+}
+
+firebase.initializeApp(firebaseConfig)
+const db=firebase.database()
+
+const canvas=document.getElementById("amida")
+const ctx=canvas.getContext("2d")
+
+let ladders=[]
+
+function makeLadder(){
+
+ladders=[]
+
+for(let i=0;i<STEPS;i++){
+
+let r=Math.floor(Math.random()*(MAX-1))
+ladders.push({y:i,x:r})
+
+}
+
+}
+
+makeLadder()
+
+function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+let w=canvas.width/(MAX+1)
+let h=canvas.height/(STEPS+2)
+
+ctx.lineWidth=2
+
+for(let i=1;i<=MAX;i++){
+
+ctx.beginPath()
+ctx.moveTo(w*i,20)
+ctx.lineTo(w*i,canvas.height)
+ctx.stroke()
+
+}
+
+ladders.forEach(l=>{
+
+let y=h*(l.y+1)
+
+ctx.beginPath()
+ctx.moveTo(w*(l.x+1),y)
+ctx.lineTo(w*(l.x+2),y)
+ctx.stroke()
+
+})
+
+}
+
+draw()
+
+for(let i=1;i<=MAX;i++){
+
+let b=document.createElement("button")
+b.innerText=i
+b.onclick=()=>choose(i)
+
+document.getElementById("buttons").appendChild(b)
+
+}
+
+function choose(num){
+
+let name=document.getElementById("name").value.trim()
+
+if(!name){
+
+alert("名前を入力してください")
+return
+
+}
+
+db.ref("amida/"+num).once("value").then(s=>{
+
+if(s.exists()){
+
+alert("その番号は選ばれています")
+
+}else{
+
+db.ref("amida/"+num).set(name)
+
+}
+
+})
+
+}
+
+db.ref("amida").on("value",snap=>{
+
+let data=snap.val()||{}
+
+let count=Object.keys(data).length
+
+document.getElementById("status").innerText=
+"参加 "+count+" / "+MAX
+
+let p=""
+
+Object.values(data).forEach(n=>{
+
+p+=n+" "
+
+})
+
+document.getElementById("players").innerText="参加者: "+p
+
+if(count===MAX){
+
+start(data)
+
+}
+
+})
+
+function path(start){
+
+let x=start
+
+for(let y=0;y<STEPS;y++){
+
+let r=ladders.find(l=>l.y===y && l.x===x)
+
+if(r) x++
+
+else{
+
+let l=ladders.find(l=>l.y===y && l.x===x-1)
+
+if(l) x--
+
+}
+
+}
+
+return x
+
+}
+
+function start(data){
+
+let w=canvas.width/(MAX+1)
+let h=canvas.height/(STEPS+2)
+
+Object.keys(data).forEach((n,i)=>{
+
+let x=n-1
+let y=0
+
+function step(){
+
+if(y>=STEPS){
+
+let r=path(n-1)
+
+document.getElementById("result").innerHTML+=
+data[n]+" → "+roles[r]+"<br>"
+
+return
+
+}
+
+ctx.beginPath()
+ctx.strokeStyle="red"
+ctx.moveTo(w*(x+1),h*y)
+ctx.lineTo(w*(x+1),h*(y+1))
+ctx.stroke()
+
+let right=ladders.find(l=>l.y===y && l.x===x)
+
+if(right){
+
+ctx.lineTo(w*(x+2),h*(y+1))
+x++
+
+}else{
+
+let left=ladders.find(l=>l.y===y && l.x===x-1)
+
+if(left){
+
+ctx.lineTo(w*(x),h*(y+1))
+x--
+
+}
+
+}
+
+y++
+
+setTimeout(step,120)
+
+}
+
+setTimeout(step,i*200)
+
+})
+
+}
+
+function reset(){
+
+db.ref("amida").remove()
+
+document.getElementById("result").innerHTML=""
+
+makeLadder()
+draw()
+
+}
+
+</script>
+
+</body>
+</html>
