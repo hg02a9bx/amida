@@ -33,7 +33,6 @@ max-width:300px;
 }
 
 #lineButtons button{
-
 font-size:20px;
 width:70px;
 height:60px;
@@ -42,11 +41,9 @@ border:none;
 border-radius:10px;
 background:#2196F3;
 color:white;
-
 }
 
 .numberBtn{
-
 font-size:18px;
 height:55px;
 width:65px;
@@ -55,7 +52,6 @@ border:none;
 border-radius:10px;
 background:#4CAF50;
 color:white;
-
 }
 
 .numberBtn.selected{
@@ -67,6 +63,18 @@ background:#999;
 pointer-events:none;
 }
 
+.confirmBtn{
+font-size:26px;
+height:70px;
+width:200px;
+border:none;
+border-radius:12px;
+background:#ff5722;
+color:white;
+font-weight:bold;
+margin-top:15px;
+}
+
 #buttons{
 display:flex;
 flex-wrap:wrap;
@@ -75,7 +83,6 @@ justify-content:center;
 
 canvas{
 width:100%;
-max-width:800px;
 border:1px solid #ccc;
 margin-top:20px;
 }
@@ -86,12 +93,20 @@ justify-content:space-between;
 margin-top:10px;
 }
 
+.resultRow{
+display:flex;
+justify-content:space-between;
+margin-top:10px;
+font-size:18px;
+font-weight:bold;
+}
+
 </style>
 </head>
 
 <body>
 
-<h2>あみだくじ</h2>
+<h2>町内会班長決めあみだくじ</h2>
 
 <div class="container">
 
@@ -100,12 +115,10 @@ margin-top:10px;
 <p>横線追加</p>
 
 <div id="lineButtons">
-
 <button onclick="selectLines(0)">0</button>
 <button onclick="selectLines(1)">1</button>
 <button onclick="selectLines(2)">2</button>
 <button onclick="selectLines(3)">3</button>
-
 </div>
 
 <p>選択横線: <span id="selectedLines">0</span></p>
@@ -116,15 +129,15 @@ margin-top:10px;
 
 <p>選択番号: <span id="selected">なし</span></p>
 
-<button onclick="confirmEntry()">決定</button>
+<button class="confirmBtn" onclick="confirmEntry()">決定</button>
 
 <p id="status"></p>
 
 <div id="names" class="nameRow"></div>
 
-<canvas id="amida" width="800" height="500"></canvas>
+<canvas id="amida"></canvas>
 
-<div id="result"></div>
+<div id="bottomResults" class="resultRow"></div>
 
 </div>
 
@@ -152,6 +165,26 @@ const db=firebase.database()
 const canvas=document.getElementById("amida")
 const ctx=canvas.getContext("2d")
 
+const TOP=60
+let BOTTOM
+
+function resizeCanvas(){
+
+let container=document.querySelector(".container")
+
+canvas.width=container.clientWidth-20
+canvas.height=500
+
+BOTTOM=canvas.height-20
+
+drawFull()
+
+}
+
+window.addEventListener("resize",resizeCanvas)
+
+resizeCanvas()
+
 function drawVertical(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
@@ -161,15 +194,37 @@ let w=canvas.width/(MAX+1)
 for(let i=1;i<=MAX;i++){
 
 ctx.beginPath()
-ctx.moveTo(w*i,40)
-ctx.lineTo(w*i,canvas.height)
+
+ctx.moveTo(w*i,TOP)
+ctx.lineTo(w*i,BOTTOM)
+
 ctx.stroke()
 
 }
 
 }
 
+function drawFull(){
+
 drawVertical()
+
+let w=canvas.width/(MAX+1)
+let h=(BOTTOM-TOP)/STEPS
+
+ladders.forEach(l=>{
+
+let y=TOP+h*l.y
+
+ctx.beginPath()
+
+ctx.moveTo(w*(l.x+1),y)
+ctx.lineTo(w*(l.x+2),y)
+
+ctx.stroke()
+
+})
+
+}
 
 for(let i=1;i<=MAX;i++){
 
@@ -188,7 +243,6 @@ document.getElementById("buttons").appendChild(b)
 function selectLines(num){
 
 selectedLines=num
-
 document.getElementById("selectedLines").innerText=num
 
 }
@@ -196,7 +250,6 @@ document.getElementById("selectedLines").innerText=num
 function selectNumber(num){
 
 selectedNumber=num
-
 document.getElementById("selected").innerText=num
 
 for(let i=1;i<=MAX;i++){
@@ -213,15 +266,9 @@ function confirmEntry(){
 
 let name=document.getElementById("name").value.trim()
 
-if(!name){
-alert("名前を入力してください")
-return
-}
+if(!name){alert("名前入力");return}
 
-if(selectedNumber===null){
-alert("番号を選んでください")
-return
-}
+if(selectedNumber===null){alert("番号選択");return}
 
 db.ref("meta/lastPlayer").once("value").then(last=>{
 
@@ -237,10 +284,7 @@ alert("その番号は選ばれています")
 return
 }
 
-db.ref("amida/"+selectedNumber).set({
-name:name,
-add:selectedLines
-})
+db.ref("amida/"+selectedNumber).set({name:name})
 
 addLadders(selectedLines)
 
@@ -256,29 +300,75 @@ function addLadders(count){
 
 for(let i=0;i<count;i++){
 
+let safe=false
+
+while(!safe){
+
 let y=Math.floor(Math.random()*STEPS)
 let x=Math.floor(Math.random()*(MAX-1))
 
-db.ref("ladders").push({
-x:x,
-y:y
-})
+let exist=ladders.find(l=>l.x===x && l.y===y)
+
+if(!exist){
+
+db.ref("ladders").push({x:x,y:y})
+
+safe=true
 
 }
 
 }
 
-db.ref("ladders").on("value",snap=>{
+}
 
-ladders=[]
+}
 
-snap.forEach(c=>{
-ladders.push(c.val())
+db.ref("ladders").on("child_added",snap=>{
+
+let l=snap.val()
+
+ladders.push(l)
+
+animateLadder(l.x,l.y)
+
 })
+
+function animateLadder(x,y){
+
+let w=canvas.width/(MAX+1)
+let h=(BOTTOM-TOP)/STEPS
+
+let start=w*(x+1)
+let end=w*(x+2)
+
+let pos=start
+
+function draw(){
+
+ctx.beginPath()
+
+ctx.moveTo(start,TOP+h*y)
+ctx.lineTo(pos,TOP+h*y)
+
+ctx.stroke()
+
+pos+=6
+
+if(pos<=end){
+
+requestAnimationFrame(draw)
+
+}else{
 
 drawFull()
 
-})
+}
+
+}
+
+draw()
+
+}
 
 db.ref("amida").on("value",snap=>{
 
@@ -296,9 +386,7 @@ Object.keys(data).forEach(num=>{
 
 let btn=document.getElementById("numBtn"+num)
 
-if(btn){
-btn.classList.add("taken")
-}
+if(btn)btn.classList.add("taken")
 
 })
 
@@ -322,11 +410,7 @@ for(let i=1;i<=MAX;i++){
 
 let d=document.createElement("div")
 
-if(data[i]){
-d.innerText=data[i].name
-}else{
-d.innerText="?"
-}
+d.innerText=data[i]?data[i].name:"?"
 
 row.appendChild(d)
 
@@ -334,35 +418,12 @@ row.appendChild(d)
 
 }
 
-function drawFull(){
-
-drawVertical()
-
-let w=canvas.width/(MAX+1)
-let h=canvas.height/(STEPS+2)
-
-ladders.forEach(l=>{
-
-let y=h*(l.y+1)
-
-ctx.beginPath()
-ctx.moveTo(w*(l.x+1),y)
-ctx.lineTo(w*(l.x+2),y)
-ctx.stroke()
-
-})
-
-}
-
 function finishGame(){
 
 db.ref("result/goal").once("value").then(s=>{
 
-if(s.exists()){
-
-goal=s.val()
-
-}else{
+if(s.exists())goal=s.val()
+else{
 
 goal=Math.floor(Math.random()*MAX)
 
@@ -386,8 +447,8 @@ for(let y=STEPS-1;y>=0;y--){
 let left=ladders.find(l=>l.y===y && l.x===x-1)
 let right=ladders.find(l=>l.y===y && l.x===x)
 
-if(left) x--
-else if(right) x++
+if(left)x--
+else if(right)x++
 
 path.push({x:x,y:y})
 
@@ -402,7 +463,7 @@ function startAnimation(){
 let path=reversePath(goal)
 
 let w=canvas.width/(MAX+1)
-let h=canvas.height/(STEPS+2)
+let h=(BOTTOM-TOP)/STEPS
 
 let i=0
 
@@ -410,22 +471,22 @@ function step(){
 
 if(i>=path.length){
 
-let winner=path[path.length-1].x+1
+let winner=path[path.length-1].x
 
-db.ref("amida/"+winner).once("value").then(s=>{
+let row=document.getElementById("bottomResults")
 
-let name=s.val().name
-
-document.getElementById("result").innerText=
-"当たりは "+name+" さん"
-
-})
+row.children[winner].innerText="当たり"
+row.children[winner].style.color="red"
 
 return
 
 }
 
 let p=path[i]
+let next=path[i+1]
+
+let x=w*(p.x+1)
+let y=TOP+h*p.y
 
 ctx.beginPath()
 
@@ -433,20 +494,51 @@ ctx.strokeStyle="red"
 ctx.lineWidth=8
 ctx.lineCap="round"
 
-ctx.moveTo(w*(p.x+1),h*(p.y+1))
-ctx.lineTo(w*(p.x+1),h*(p.y))
+ctx.moveTo(x,y+h)
+ctx.lineTo(x,y)
 
 ctx.stroke()
 
+if(next && next.x!==p.x){
+
+ctx.beginPath()
+
+ctx.moveTo(x,y)
+ctx.lineTo(w*(next.x+1),y)
+
+ctx.stroke()
+
+}
+
 i++
 
-setTimeout(step,120)
+setTimeout(step,140)
 
 }
 
 step()
 
 }
+
+function initResults(){
+
+let row=document.getElementById("bottomResults")
+
+row.innerHTML=""
+
+for(let i=0;i<MAX;i++){
+
+let d=document.createElement("div")
+
+d.innerText="？"
+
+row.appendChild(d)
+
+}
+
+}
+
+initResults()
 
 </script>
 
