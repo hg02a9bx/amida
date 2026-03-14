@@ -103,105 +103,63 @@ ladders.push({y:i,x:r})
 makeLadder()
 
 function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height)
-
-let w=canvas.width/(MAX+1)
-let h=canvas.height/(STEPS+2)
-
-ctx.lineWidth=2
-
-for(let i=1;i<=MAX;i++){
-
-ctx.beginPath()
-ctx.moveTo(w*i,20)
-ctx.lineTo(w*i,canvas.height)
-ctx.stroke()
-
+  ctx.clearRect(0,0,canvas.width,canvas.height)
+  let w=canvas.width/(MAX+1)
+  let h=canvas.height/(STEPS+2)
+  ctx.lineWidth=2
+  for(let i=1;i<=MAX;i++){
+    ctx.beginPath()
+    ctx.moveTo(w*i,20)
+    ctx.lineTo(w*i,canvas.height)
+    ctx.stroke()
+  }
+  ladders.forEach(l=>{
+    let y=h*(l.y+1)
+    ctx.beginPath()
+    ctx.moveTo(w*(l.x+1),y)
+    ctx.lineTo(w*(l.x+2),y)
+    ctx.stroke()
+  })
 }
-
-ladders.forEach(l=>{
-
-let y=h*(l.y+1)
-
-ctx.beginPath()
-ctx.moveTo(w*(l.x+1),y)
-ctx.lineTo(w*(l.x+2),y)
-ctx.stroke()
-
-})
-
-}
-
 draw()
-
 for(let i=1;i<=MAX;i++){
-
-let b=document.createElement("button")
-b.innerText=i
-b.onclick=()=>choose(i)
-
-document.getElementById("buttons").appendChild(b)
-
+  let b=document.createElement("button")
+  b.innerText=i
+  b.onclick=()=>choose(i)
+  document.getElementById("buttons").appendChild(b)
 }
 
 function choose(num){
-
-let name=document.getElementById("name").value.trim()
-
-if(!name){
-
-alert("名前を入力してください")
-return
-
+  let name=document.getElementById("name").value.trim()
+  if(!name){
+    alert("名前を入力してください")
+    return
+  }
+  db.ref("amida/"+num).once("value").then(s=>{
+    if(s.exists()){
+      alert("その番号は選ばれています")
+    }else{
+      db.ref("amida/"+num).set(name)
+    }
+  })
 }
-
-db.ref("amida/"+num).once("value").then(s=>{
-
-if(s.exists()){
-
-alert("その番号は選ばれています")
-
-}else{
-
-db.ref("amida/"+num).set(name)
-
-}
-
-})
-
-}
-
 db.ref("amida").on("value",snap=>{
-
-let data=snap.val()||{}
-
-let count=Object.keys(data).length
-
-document.getElementById("status").innerText=
-"参加 "+count+" / "+MAX
-
-let p=""
-
-Object.values(data).forEach(n=>{
-
-p+=n+" "
-
-})
-
-document.getElementById("players").innerText="参加者: "+p
-
-if(count===MAX){
-
-start(data)
-
-}
-
+  let data=snap.val()||{}
+  let count=Object.keys(data).length
+  document.getElementById("status").innerText=
+  "参加 "+count+" / "+MAX
+  let p=""
+  Object.values(data).forEach(n=>{
+    p+=n+" "
+  })
+  document.getElementById("players").innerText="参加者: "+p
+  if(count===MAX){
+    start(data)
+  }
 })
 
 function path(start){
-
-let x=start
+  let x=start
 
 for(let y=0;y<STEPS;y++){
 
