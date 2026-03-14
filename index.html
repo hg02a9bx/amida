@@ -69,7 +69,7 @@ font-size:14px;
 
 <body>
 
-<h2>あみだくじ</h2>
+<h2>町内会班長あみだくじ</h2>
 
 <div class="container">
 
@@ -349,10 +349,12 @@ let i=0
 function step(){
 
 if(i>=path.length){
-
-document.getElementById("result").innerText=
-"当たりは "+(path[path.length-1].x+1)+" 番"
-
+let winner = path[path.length-1].x + 1
+db.ref("amida/"+winner).once("value").then(S=>{
+  let name = s.val().name
+  document.getElementById("result").innerText=
+  "当たりは "+(path[path.length-1].x+1)+" 番を選んだ"+ name +"さん"
+})
 return
 
 }
@@ -361,6 +363,7 @@ let p=path[i]
 
 ctx.beginPath()
 ctx.strokeStyle="red"
+ctx.lineWidth=6
 ctx.moveTo(w*(p.x+1),h*(p.y+1))
 ctx.lineTo(w*(p.x+1),h*(p.y))
 ctx.stroke()
