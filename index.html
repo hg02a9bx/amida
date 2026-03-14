@@ -14,7 +14,7 @@
 body{
 font-family:sans-serif;
 text-align:center;
-background:#f3f3f3;
+background:#f4f4f4;
 margin:0;
 }
 
@@ -23,7 +23,6 @@ background:white;
 max-width:900px;
 margin:auto;
 padding:20px;
-border-radius:10px;
 }
 
 input{
@@ -33,15 +32,39 @@ width:70%;
 max-width:300px;
 }
 
-button{
-font-size:18px;
-height:50px;
+#lineButtons button{
+
+font-size:20px;
 width:70px;
+height:60px;
 margin:6px;
 border:none;
-border-radius:8px;
+border-radius:10px;
+background:#2196F3;
+color:white;
+
+}
+
+.numberBtn{
+
+font-size:18px;
+height:55px;
+width:65px;
+margin:6px;
+border:none;
+border-radius:10px;
 background:#4CAF50;
 color:white;
+
+}
+
+.numberBtn.selected{
+background:#2196F3;
+}
+
+.numberBtn.taken{
+background:#999;
+pointer-events:none;
 }
 
 #buttons{
@@ -53,7 +76,7 @@ justify-content:center;
 canvas{
 width:100%;
 max-width:800px;
-border:1px solid #ddd;
+border:1px solid #ccc;
 margin-top:20px;
 }
 
@@ -61,7 +84,6 @@ margin-top:20px;
 display:flex;
 justify-content:space-between;
 margin-top:10px;
-font-size:14px;
 }
 
 </style>
@@ -69,26 +91,32 @@ font-size:14px;
 
 <body>
 
-<h2>町内会班長あみだくじ</h2>
+<h2>あみだくじ</h2>
 
 <div class="container">
 
 <input id="name" placeholder="名前">
 
+<p>横線追加</p>
+
+<div id="lineButtons">
+
+<button onclick="selectLines(0)">0</button>
+<button onclick="selectLines(1)">1</button>
+<button onclick="selectLines(2)">2</button>
+<button onclick="selectLines(3)">3</button>
+
+</div>
+
+<p>選択横線: <span id="selectedLines">0</span></p>
+
 <p>番号</p>
 
 <div id="buttons"></div>
 
-<p>横線追加</p>
+<p>選択番号: <span id="selected">なし</span></p>
 
-<select id="addLines">
-<option value="0">0本</option>  
-<option value="1">1本</option>
-<option value="2">2本</option>
-<option value="3">3本</option>
-</select>
-
-<p id="ladderCount">横線数：0</p>
+<button onclick="confirmEntry()">決定</button>
 
 <p id="status"></p>
 
@@ -102,9 +130,11 @@ font-size:14px;
 
 <script>
 
-const MAX=3
+const MAX=13
 const STEPS=15
 
+let selectedLines=0
+let selectedNumber=null
 let ladders=[]
 let goal=null
 
@@ -114,8 +144,9 @@ authDomain:"amida2.firebaseapp.com",
 databaseURL:"https://amida2-default-rtdb.firebaseio.com",
 projectId:"amida2"
 }
-  
+
 firebase.initializeApp(firebaseConfig)
+
 const db=firebase.database()
 
 const canvas=document.getElementById("amida")
@@ -143,54 +174,109 @@ drawVertical()
 for(let i=1;i<=MAX;i++){
 
 let b=document.createElement("button")
+
 b.innerText=i
-b.onclick=()=>choose(i)
+b.className="numberBtn"
+b.id="numBtn"+i
+
+b.onclick=()=>selectNumber(i)
 
 document.getElementById("buttons").appendChild(b)
 
 }
 
-function choose(num){
+function selectLines(num){
+
+selectedLines=num
+
+document.getElementById("selectedLines").innerText=num
+
+}
+
+function selectNumber(num){
+
+selectedNumber=num
+
+document.getElementById("selected").innerText=num
+
+for(let i=1;i<=MAX;i++){
+
+document.getElementById("numBtn"+i).classList.remove("selected")
+
+}
+
+document.getElementById("numBtn"+num).classList.add("selected")
+
+}
+
+function confirmEntry(){
 
 let name=document.getElementById("name").value.trim()
-let add=parseInt(document.getElementById("addLines").value)
 
 if(!name){
-alert("名前入力")
+alert("名前を入力してください")
 return
 }
 
-db.ref("meta/finished").once("value").then(s=>{
-
-if(s.val()){
-alert("このあみだくじは終了しています")
+if(selectedNumber===null){
+alert("番号を選んでください")
 return
 }
 
-db.ref("amida/"+num).once("value").then(v=>{
+db.ref("meta/lastPlayer").once("value").then(last=>{
 
-if(v.exists()){
+if(last.val()===name){
+alert("同じ人が続けて選べません")
+return
+}
+
+db.ref("amida/"+selectedNumber).once("value").then(s=>{
+
+if(s.exists()){
 alert("その番号は選ばれています")
-}else{
+return
+}
 
-db.ref("amida/"+num).set({name:name,add:add})
+db.ref("amida/"+selectedNumber).set({
+name:name,
+add:selectedLines
+})
 
-db.ref("meta/ladderCount").transaction(c=>{
-return (c||0)+add
+addLadders(selectedLines)
+
+db.ref("meta/lastPlayer").set(name)
+
+})
+
 })
 
 }
 
-})
+function addLadders(count){
 
+for(let i=0;i<count;i++){
+
+let y=Math.floor(Math.random()*STEPS)
+let x=Math.floor(Math.random()*(MAX-1))
+
+db.ref("ladders").push({
+x:x,
+y:y
 })
 
 }
 
-db.ref("meta/ladderCount").on("value",snap=>{
+}
 
-let c=snap.val()||0
-document.getElementById("ladderCount").innerText="横線数："+c
+db.ref("ladders").on("value",snap=>{
+
+ladders=[]
+
+snap.forEach(c=>{
+ladders.push(c.val())
+})
+
+drawFull()
 
 })
 
@@ -198,14 +284,30 @@ db.ref("amida").on("value",snap=>{
 
 let data=snap.val()||{}
 
-let count=Object.keys(data).length
+for(let i=1;i<=MAX;i++){
 
-document.getElementById("status").innerText="参加 "+count+" / "+MAX
+let btn=document.getElementById("numBtn"+i)
+
+btn.classList.remove("taken")
+
+}
+
+Object.keys(data).forEach(num=>{
+
+let btn=document.getElementById("numBtn"+num)
+
+if(btn){
+btn.classList.add("taken")
+}
+
+})
 
 showNames(data)
 
-if(count===MAX){
-finishGame(data)
+if(Object.keys(data).length===MAX){
+
+finishGame()
+
 }
 
 })
@@ -213,6 +315,7 @@ finishGame(data)
 function showNames(data){
 
 let row=document.getElementById("names")
+
 row.innerHTML=""
 
 for(let i=1;i<=MAX;i++){
@@ -226,51 +329,6 @@ d.innerText="?"
 }
 
 row.appendChild(d)
-
-}
-
-}
-
-function finishGame(data){
-
-db.ref("ladders").once("value").then(s=>{
-
-if(s.exists()){
-
-ladders=Object.values(s.val())
-
-}else{
-
-let total=0
-
-Object.values(data).forEach(v=>{ total+=v.add })
-
-generateLadders(total)
-
-db.ref("ladders").set(ladders)
-
-db.ref("meta/finished").set(true)
-
-}
-
-drawFull()
-
-loadResult()
-
-})
-
-}
-
-function generateLadders(count){
-
-ladders=[]
-
-for(let i=0;i<count;i++){
-
-let y=Math.floor(Math.random()*STEPS)
-let x=Math.floor(Math.random()*(MAX-1))
-
-ladders.push({x:x,y:y})
 
 }
 
@@ -296,12 +354,14 @@ ctx.stroke()
 
 }
 
-function loadResult(){
+function finishGame(){
 
 db.ref("result/goal").once("value").then(s=>{
 
 if(s.exists()){
+
 goal=s.val()
+
 }else{
 
 goal=Math.floor(Math.random()*MAX)
@@ -349,12 +409,18 @@ let i=0
 function step(){
 
 if(i>=path.length){
-let winner = path[path.length-1].x + 1
-db.ref("amida/"+winner).once("value").then(S=>{
-  let name = s.val().name
-  document.getElementById("result").innerText=
-  "当たりは "+(path[path.length-1].x+1)+" 番を選んだ"+ name +"さん"
+
+let winner=path[path.length-1].x+1
+
+db.ref("amida/"+winner).once("value").then(s=>{
+
+let name=s.val().name
+
+document.getElementById("result").innerText=
+"当たりは "+name+" さん"
+
 })
+
 return
 
 }
@@ -362,10 +428,14 @@ return
 let p=path[i]
 
 ctx.beginPath()
+
 ctx.strokeStyle="red"
-ctx.lineWidth=6
+ctx.lineWidth=8
+ctx.lineCap="round"
+
 ctx.moveTo(w*(p.x+1),h*(p.y+1))
 ctx.lineTo(w*(p.x+1),h*(p.y))
+
 ctx.stroke()
 
 i++
@@ -382,3 +452,5 @@ step()
 
 </body>
 </html>
+
+  
