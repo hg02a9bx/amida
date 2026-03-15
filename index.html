@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>町内会班長あみだくじ</title>
-
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -118,12 +117,20 @@ font-size:22px;
 font-weight:bold;
 }
 
+#winner{
+margin-top:20px;
+font-size:34px;
+font-weight:bold;
+color:red;
+height:40px;
+}
+
 </style>
 </head>
 
 <body>
 
-<h2>町内会班長決めあみだくじ</h2>
+<h2>あみだくじ</h2>
 
 <div class="container">
 
@@ -152,6 +159,8 @@ font-weight:bold;
 
 <canvas id="amida"></canvas>
 
+<div id="winner"></div>
+
 <div id="bottomResults" class="resultRow"></div>
 
 </div>
@@ -165,7 +174,7 @@ let selectedLines=0
 let selectedNumber=null
 let ladders=[]
 let goal=null
-let finalPath=null
+let finalSegments=[]
 
 const firebaseConfig={
 apiKey:"AIzaSyCVBY1Z0ta7al-brLKTQ6WyjDlLYk0fkDU",
@@ -241,8 +250,21 @@ ctx.stroke()
 
 })
 
-if(finalPath){
-drawWinningPath()
+if(finalSegments.length){
+
+ctx.strokeStyle="red"
+ctx.lineWidth=8
+ctx.lineCap="round"
+
+finalSegments.forEach(s=>{
+
+ctx.beginPath()
+ctx.moveTo(s.x1,s.y1)
+ctx.lineTo(s.x2,s.y2)
+ctx.stroke()
+
+})
+
 }
 
 }
@@ -261,23 +283,21 @@ document.getElementById("buttons").appendChild(b)
 
 }
 
-function selectLines(num){
-
-selectedLines=num
-document.getElementById("selectedLines").innerText=num
-
+function selectLines(n){
+selectedLines=n
+document.getElementById("selectedLines").innerText=n
 }
 
-function selectNumber(num){
+function selectNumber(n){
 
-selectedNumber=num
-document.getElementById("selected").innerText=num
+selectedNumber=n
+document.getElementById("selected").innerText=n
 
 for(let i=1;i<=MAX;i++){
 document.getElementById("numBtn"+i).classList.remove("selected")
 }
 
-document.getElementById("numBtn"+num).classList.add("selected")
+document.getElementById("numBtn"+n).classList.add("selected")
 
 }
 
@@ -388,9 +408,7 @@ for(let i=1;i<=MAX;i++){
 let d=document.createElement("div")
 
 d.className="nameCell"
-
 d.innerText=data[i]?data[i].name:"？"
-
 d.style.left=(w*i)+"px"
 
 row.appendChild(d)
@@ -405,10 +423,8 @@ db.ref("result/goal").once("value").then(s=>{
 
 if(s.exists())goal=s.val()
 else{
-
 goal=Math.floor(Math.random()*MAX)
 db.ref("result/goal").set(goal)
-
 }
 
 startAnimation()
@@ -417,107 +433,96 @@ startAnimation()
 
 }
 
-function reversePath(goal){
+function computeSegments(){
+
+let w=canvas.width/(MAX+1)
+let h=(BOTTOM-TOP)/STEPS
 
 let x=goal
-let path=[]
+let y=BOTTOM+20
 
-for(let y=STEPS-1;y>=0;y--){
+finalSegments=[]
 
-for(let l of ladders){
+finalSegments.push({
+x1:w*(x+1),
+y1:y,
+x2:w*(x+1),
+y2:BOTTOM
+})
 
-if(l.y===y){
+y=BOTTOM
 
-if(l.x===x){x++}
-else if(l.x===x-1){x--}
+for(let step=STEPS-1;step>=0;step--){
+
+let levelY=TOP+h*step
+
+finalSegments.push({
+x1:w*(x+1),
+y1:y,
+x2:w*(x+1),
+y2:levelY
+})
+
+let right=ladders.find(l=>l.x===x && l.y===step)
+let left=ladders.find(l=>l.x===x-1 && l.y===step)
+
+if(right){
+
+finalSegments.push({
+x1:w*(x+1),
+y1:levelY,
+x2:w*(x+2),
+y2:levelY
+})
+
+x++
+
+}else if(left){
+
+finalSegments.push({
+x1:w*(x+1),
+y1:levelY,
+x2:w*(x),
+y2:levelY
+})
+
+x--
 
 }
 
-}
-
-path.push({x:x,y:y})
+y=levelY
 
 }
-
-return path
 
 }
 
 function startAnimation(){
 
-let path=reversePath(goal)
+computeSegments()
 
-let w=canvas.width/(MAX+1)
-let h=(BOTTOM-TOP)/STEPS
-
-let startX=w*(goal+1)
-let startY=BOTTOM+20
-
-let i=-1
+let i=0
 
 function step(){
 
-if(i===-1){
-
-ctx.beginPath()
-ctx.strokeStyle="red"
-ctx.lineWidth=8
-ctx.lineCap="round"
-
-ctx.moveTo(startX,startY)
-ctx.lineTo(startX,BOTTOM)
-
-ctx.stroke()
-
-i++
-setTimeout(step,140)
-return
-
-}
-
-if(i>=path.length){
-
-finalPath=path
-
-let row=document.getElementById("bottomResults")
-
-row.children[goal].innerText="当たり"
-row.children[goal].style.color="red"
-row.children[goal].classList.add("vertical")
-
+if(i>=finalSegments.length){
+showWinner()
 drawFull()
-
 return
-
 }
 
-let p=path[i]
-let next=path[i+1]
-
-let x=w*(p.x+1)
-let y=TOP+h*p.y
+let s=finalSegments[i]
 
 ctx.beginPath()
 ctx.strokeStyle="red"
 ctx.lineWidth=8
 ctx.lineCap="round"
-
-ctx.moveTo(x,y+h)
-ctx.lineTo(x,y)
+ctx.moveTo(s.x1,s.y1)
+ctx.lineTo(s.x2,s.y2)
 ctx.stroke()
-
-if(next && next.x!==p.x){
-
-ctx.beginPath()
-ctx.moveTo(x,y)
-ctx.lineTo(w*(next.x+1),y)
-ctx.stroke()
-
-}
 
 i++
 
-setTimeout(step,140)
+setTimeout(step,120)
 
 }
 
@@ -525,45 +530,21 @@ step()
 
 }
 
-function drawWinningPath(){
+function showWinner(){
 
-let w=canvas.width/(MAX+1)
-let h=(BOTTOM-TOP)/STEPS
+db.ref("amida/"+(goal+1)).once("value").then(s=>{
 
-ctx.strokeStyle="red"
-ctx.lineWidth=8
-ctx.lineCap="round"
+let name=s.val()?.name || ""
 
-let startX=w*(goal+1)
+document.getElementById("winner").innerText="当たり: "+name
 
-ctx.beginPath()
-ctx.moveTo(startX,BOTTOM)
-ctx.lineTo(startX,BOTTOM-h)
-ctx.stroke()
+})
 
-for(let i=0;i<finalPath.length;i++){
+let row=document.getElementById("bottomResults")
 
-let p=finalPath[i]
-let next=finalPath[i+1]
-
-let x=w*(p.x+1)
-let y=TOP+h*p.y
-
-ctx.beginPath()
-ctx.moveTo(x,y+h)
-ctx.lineTo(x,y)
-ctx.stroke()
-
-if(next && next.x!==p.x){
-
-ctx.beginPath()
-ctx.moveTo(x,y)
-ctx.lineTo(w*(next.x+1),y)
-ctx.stroke()
-
-}
-
-}
+row.children[goal].innerText="当たり"
+row.children[goal].style.color="red"
+row.children[goal].classList.add("vertical")
 
 }
 
@@ -577,10 +558,8 @@ let w=canvas.width/(MAX+1)
 for(let i=0;i<MAX;i++){
 
 let d=document.createElement("div")
-
 d.className="resultCell"
 d.innerText="？"
-
 d.style.left=(w*(i+1))+"px"
 
 row.appendChild(d)
