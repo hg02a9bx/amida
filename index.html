@@ -272,14 +272,18 @@ if(!name){ alert("名前入力"); return }
 db.ref("amida").once("value").then(snapshot=>{
 let data = snapshot.val() || {}
 
-for(let num in data){
-if(data[num].name===name){
-showBottomResult(parseInt(num)-1, name)
-return
-}
+let found = Object.keys(data).find(num => data[num].name === name)
+
+if(found){
+    // 再入力時：棒の下に本当の当たり表示のみ
+    db.ref("meta/goal").once("value").then(goalSnap=>{
+        let realGoal = goalSnap.val()
+        showBottomResult(realGoal, null) // 名前は表示しない
+    })
+    return
 }
 
-// 最初の参加者なら当たりを決定
+// 初回入力：当たり未決定ならランダム決定
 db.ref("meta/goal").once("value").then(goalSnap=>{
 if(!goalSnap.exists()){
 let firstGoal = Math.floor(Math.random() * MAX)
@@ -288,7 +292,8 @@ goal = firstGoal
 } else {
 goal = goalSnap.val()
 }
-showBottomResult(goal, null)
+
+showBottomResult(goal, null) // 下に当たり表示
 newEntry(name)
 })
 })
@@ -422,7 +427,6 @@ row.children[goal].style.color="red"
 
 function showBottomResult(column, name){
 let row=document.getElementById("bottomResults")
-if(name) name = name+"さん"
 row.children[column].innerText="当たり"
 row.children[column].style.color="red"
 }
