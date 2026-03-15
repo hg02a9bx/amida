@@ -130,7 +130,7 @@ height:40px;
 
 <body>
 
-<h2>あみだくじ</h2>
+<h2>町内会班長あみだくじ</h2>
 
 <div class="container">
 
@@ -174,7 +174,7 @@ let selectedLines=0
 let selectedNumber=null
 let ladders=[]
 let goal=null
-let finalSegments=[]
+let winnerColumn=0
 
 const firebaseConfig={
 apiKey:"AIzaSyCVBY1Z0ta7al-brLKTQ6WyjDlLYk0fkDU",
@@ -249,23 +249,6 @@ ctx.lineTo(w*(l.x+2),y)
 ctx.stroke()
 
 })
-
-if(finalSegments.length){
-
-ctx.strokeStyle="red"
-ctx.lineWidth=8
-ctx.lineCap="round"
-
-finalSegments.forEach(s=>{
-
-ctx.beginPath()
-ctx.moveTo(s.x1,s.y1)
-ctx.lineTo(s.x2,s.y2)
-ctx.stroke()
-
-})
-
-}
 
 }
 
@@ -419,21 +402,13 @@ row.appendChild(d)
 
 function finishGame(){
 
-db.ref("result/goal").once("value").then(s=>{
-
-if(s.exists())goal=s.val()
-else{
 goal=Math.floor(Math.random()*MAX)
-db.ref("result/goal").set(goal)
-}
 
 startAnimation()
 
-})
-
 }
 
-function computeSegments(){
+function startAnimation(){
 
 let w=canvas.width/(MAX+1)
 let h=(BOTTOM-TOP)/STEPS
@@ -441,50 +416,43 @@ let h=(BOTTOM-TOP)/STEPS
 let x=goal
 let y=BOTTOM+20
 
-finalSegments=[]
+ctx.strokeStyle="red"
+ctx.lineWidth=8
+ctx.lineCap="round"
 
-finalSegments.push({
-x1:w*(x+1),
-y1:y,
-x2:w*(x+1),
-y2:BOTTOM
-})
+function step(level){
 
-y=BOTTOM
+if(level<0){
+winnerColumn=x
+showWinner()
+return
+}
 
-for(let step=STEPS-1;step>=0;step--){
+let levelY=TOP+h*level
 
-let levelY=TOP+h*step
+ctx.beginPath()
+ctx.moveTo(w*(x+1),y)
+ctx.lineTo(w*(x+1),levelY)
+ctx.stroke()
 
-finalSegments.push({
-x1:w*(x+1),
-y1:y,
-x2:w*(x+1),
-y2:levelY
-})
-
-let right=ladders.find(l=>l.x===x && l.y===step)
-let left=ladders.find(l=>l.x===x-1 && l.y===step)
+let right=ladders.find(l=>l.x===x && l.y===level)
+let left=ladders.find(l=>l.x===x-1 && l.y===level)
 
 if(right){
 
-finalSegments.push({
-x1:w*(x+1),
-y1:levelY,
-x2:w*(x+2),
-y2:levelY
-})
+ctx.beginPath()
+ctx.moveTo(w*(x+1),levelY)
+ctx.lineTo(w*(x+2),levelY)
+ctx.stroke()
 
 x++
 
 }else if(left){
 
-finalSegments.push({
-x1:w*(x+1),
-y1:levelY,
-x2:w*(x),
-y2:levelY
-})
+ctx.beginPath()
+ctx.moveTo(w*(x+1),levelY)
+ctx.lineTo(w*(x),levelY)
+ctx.stroke()
 
 x--
 
@@ -492,47 +460,17 @@ x--
 
 y=levelY
 
-}
+setTimeout(()=>step(level-1),120)
 
 }
 
-function startAnimation(){
-
-computeSegments()
-
-let i=0
-
-function step(){
-
-if(i>=finalSegments.length){
-showWinner()
-drawFull()
-return
-}
-
-let s=finalSegments[i]
-
-ctx.beginPath()
-ctx.strokeStyle="red"
-ctx.lineWidth=8
-ctx.lineCap="round"
-ctx.moveTo(s.x1,s.y1)
-ctx.lineTo(s.x2,s.y2)
-ctx.stroke()
-
-i++
-
-setTimeout(step,120)
-
-}
-
-step()
+step(STEPS-1)
 
 }
 
 function showWinner(){
 
-db.ref("amida/"+(goal+1)).once("value").then(s=>{
+db.ref("amida/"+(winnerColumn+1)).once("value").then(s=>{
 
 let name=s.val()?.name || ""
 
