@@ -118,12 +118,12 @@ height:40px;
 
 <p>横線追加</p>
 <div id="lineButtons">
-<button onclick="selectLines(1)">1</button>
-<button onclick="selectLines(2)">2</button>
-<button onclick="selectLines(3)">3</button>
-<button onclick="selectLines(5)">5</button>
+<button onclick="selectLines(1)">3</button>
+<button onclick="selectLines(2)">4</button>
+<button onclick="selectLines(3)">5</button>
+<button onclick="selectLines(5)">6</button>
 </div>
-<p>横線: <span id="selectedLines">1</span></p>
+<p>横線: <span id="selectedLines">3</span></p>
 
 <p>番号</p>
 <div id="buttons"></div>
@@ -142,7 +142,7 @@ height:40px;
 const MAX=13
 const STEPS=15
 
-let selectedLines=0
+let selectedLines=3
 let selectedNumber=null
 let ladders=[]
 let goal=null
