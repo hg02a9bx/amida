@@ -97,6 +97,7 @@ transform:translateX(-50%);
 writing-mode:vertical-rl;
 text-orientation:upright;
 font-weight:bold;
+font-size:18px;
 }
 
 .resultRow{
@@ -108,13 +109,10 @@ margin-top:10px;
 .resultCell{
 position:absolute;
 transform:translateX(-50%);
-}
-
-.vertical{
 writing-mode:vertical-rl;
 text-orientation:upright;
-font-size:22px;
 font-weight:bold;
+font-size:18px;
 }
 
 #winner{
@@ -175,6 +173,7 @@ let selectedNumber=null
 let ladders=[]
 let goal=null
 let winnerColumn=0
+let redSegments=[]
 
 const firebaseConfig={
 apiKey:"AIzaSyCVBY1Z0ta7al-brLKTQ6WyjDlLYk0fkDU",
@@ -250,6 +249,18 @@ ctx.stroke()
 
 })
 
+if(redSegments.length){
+ctx.strokeStyle="red"
+ctx.lineWidth=8
+ctx.lineCap="round"
+redSegments.forEach(s=>{
+ctx.beginPath()
+ctx.moveTo(s.x1,s.y1)
+ctx.lineTo(s.x2,s.y2)
+ctx.stroke()
+})
+}
+
 }
 
 for(let i=1;i<=MAX;i++){
@@ -289,12 +300,34 @@ function confirmEntry(){
 let name=document.getElementById("name").value.trim()
 
 if(!name){alert("名前入力");return}
-if(selectedNumber===null){alert("番号選択");return}
 
-db.ref("meta/lastPlayer").once("value").then(last=>{
+db.ref("amida").once("value").then(snapshot=>{
 
-if(last.val()===name){
-alert("同じ人が続けて選べません")
+let data=snapshot.val() || {}
+
+for(let num in data){
+
+if(data[num].name===name){
+
+// 同じ名前が存在 → 下に当たりを表示
+showBottomResult(parseInt(num)-1)
+return
+
+}
+
+}
+
+// 新規参加
+newEntry(name)
+
+})
+
+}
+
+function newEntry(name){
+
+if(selectedNumber===null){
+alert("番号選択")
 return
 }
 
@@ -308,10 +341,6 @@ return
 db.ref("amida/"+selectedNumber).set({name:name})
 
 addLadders(selectedLines)
-
-db.ref("meta/lastPlayer").set(name)
-
-})
 
 })
 
@@ -402,9 +431,16 @@ row.appendChild(d)
 
 function finishGame(){
 
-goal=Math.floor(Math.random()*MAX)
-
+db.ref("meta/goal").once("value").then(s=>{
+if(s.exists()){
+goal=s.val()
 startAnimation()
+}else{
+goal=Math.floor(Math.random()*MAX)
+db.ref("meta/goal").set(goal)
+startAnimation()
+}
+})
 
 }
 
@@ -416,10 +452,6 @@ let h=(BOTTOM-TOP)/STEPS
 let x=goal
 let y=BOTTOM+20
 
-ctx.strokeStyle="red"
-ctx.lineWidth=8
-ctx.lineCap="round"
-
 function step(level){
 
 if(level<0){
@@ -430,32 +462,33 @@ return
 
 let levelY=TOP+h*level
 
+ctx.strokeStyle="red"
+ctx.lineWidth=8
+ctx.lineCap="round"
 ctx.beginPath()
 ctx.moveTo(w*(x+1),y)
 ctx.lineTo(w*(x+1),levelY)
 ctx.stroke()
 
+redSegments.push({x1:w*(x+1),y1:y,x2:w*(x+1),y2:levelY})
+
 let right=ladders.find(l=>l.x===x && l.y===level)
 let left=ladders.find(l=>l.x===x-1 && l.y===level)
 
 if(right){
-
 ctx.beginPath()
 ctx.moveTo(w*(x+1),levelY)
 ctx.lineTo(w*(x+2),levelY)
 ctx.stroke()
-
+redSegments.push({x1:w*(x+1),y1:levelY,x2:w*(x+2),y2:levelY})
 x++
-
 }else if(left){
-
 ctx.beginPath()
 ctx.moveTo(w*(x+1),levelY)
 ctx.lineTo(w*(x),levelY)
 ctx.stroke()
-
+redSegments.push({x1:w*(x+1),y1:levelY,x2:w*(x),y2:levelY})
 x--
-
 }
 
 y=levelY
@@ -482,7 +515,15 @@ let row=document.getElementById("bottomResults")
 
 row.children[goal].innerText="当たり"
 row.children[goal].style.color="red"
-row.children[goal].classList.add("vertical")
+
+}
+
+function showBottomResult(column){
+
+let row=document.getElementById("bottomResults")
+
+row.children[column].innerText="当たり"
+row.children[column].style.color="red"
 
 }
 
