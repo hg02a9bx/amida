@@ -123,7 +123,7 @@ height:40px;
 <button onclick="selectLines(3)">3</button>
 <button onclick="selectLines(5)">5</button>
 </div>
-<p>横線: <span id="selectedLines">0</span></p>
+<p>横線: <span id="selectedLines">1</span></p>
 
 <p>番号</p>
 <div id="buttons"></div>
@@ -237,7 +237,7 @@ document.getElementById("numBtn"+n).classList.add("selected")
 
 function confirmEntry(){
 let name=document.getElementById("name").value.trim()
-if(!name){ alert("名前入力"); return }
+if(!name){ alert("名前入力してください"); return }
 
 db.ref("amida").once("value").then(snapshot=>{
 let data = snapshot.val() || {}
@@ -268,7 +268,7 @@ newEntry(name)
 }
 
 function newEntry(name){
-if(selectedNumber===null){alert("番号選択");return}
+if(selectedNumber===null){alert("番号選択してください");return}
 db.ref("amida/"+selectedNumber).once("value").then(s=>{
 if(s.exists()){alert("その番号は使われています");return}
 db.ref("amida/"+selectedNumber).set({name:name})
