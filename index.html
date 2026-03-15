@@ -14,7 +14,7 @@
 body{
 font-family:sans-serif;
 text-align:center;
-background:#f4f4f4;
+background:#f2f2f2;
 margin:0;
 }
 
@@ -35,8 +35,8 @@ max-width:300px;
 #lineButtons button{
 font-size:20px;
 width:70px;
-height:60px;
-margin:6px;
+height:55px;
+margin:5px;
 border:none;
 border-radius:10px;
 background:#2196F3;
@@ -84,20 +84,37 @@ justify-content:center;
 canvas{
 width:100%;
 border:1px solid #ccc;
-margin-top:20px;
+margin-top:10px;
 }
 
 .nameRow{
-display:flex;
-justify-content:space-between;
-margin-top:10px;
+position:relative;
+height:80px;
+}
+
+.nameCell{
+position:absolute;
+transform:translateX(-50%);
+writing-mode:vertical-rl;
+text-orientation:upright;
+font-weight:bold;
 }
 
 .resultRow{
-display:flex;
-justify-content:space-between;
+position:relative;
+height:60px;
 margin-top:10px;
-font-size:18px;
+}
+
+.resultCell{
+position:absolute;
+transform:translateX(-50%);
+}
+
+.vertical{
+writing-mode:vertical-rl;
+text-orientation:upright;
+font-size:22px;
 font-weight:bold;
 }
 
@@ -106,7 +123,7 @@ font-weight:bold;
 
 <body>
 
-<h2>町内会班長決めあみだくじ</h2>
+<h2>あみだくじ</h2>
 
 <div class="container">
 
@@ -121,7 +138,7 @@ font-weight:bold;
 <button onclick="selectLines(3)">3</button>
 </div>
 
-<p>選択横線: <span id="selectedLines">0</span></p>
+<p>横線: <span id="selectedLines">0</span></p>
 
 <p>番号</p>
 
@@ -130,8 +147,6 @@ font-weight:bold;
 <p>選択番号: <span id="selected">なし</span></p>
 
 <button class="confirmBtn" onclick="confirmEntry()">決定</button>
-
-<p id="status"></p>
 
 <div id="names" class="nameRow"></div>
 
@@ -143,13 +158,14 @@ font-weight:bold;
 
 <script>
 
-const MAX=13
+const MAX=10
 const STEPS=15
 
 let selectedLines=0
 let selectedNumber=null
 let ladders=[]
 let goal=null
+let finalPath=null
 
 const firebaseConfig={
 apiKey:"AIzaSyCVBY1Z0ta7al-brLKTQ6WyjDlLYk0fkDU",
@@ -178,6 +194,11 @@ canvas.height=500
 BOTTOM=canvas.height-20
 
 drawFull()
+initResults()
+
+db.ref("amida").once("value").then(s=>{
+showNames(s.val()||{})
+})
 
 }
 
@@ -194,10 +215,8 @@ let w=canvas.width/(MAX+1)
 for(let i=1;i<=MAX;i++){
 
 ctx.beginPath()
-
 ctx.moveTo(w*i,TOP)
 ctx.lineTo(w*i,BOTTOM)
-
 ctx.stroke()
 
 }
@@ -216,13 +235,15 @@ ladders.forEach(l=>{
 let y=TOP+h*l.y
 
 ctx.beginPath()
-
 ctx.moveTo(w*(l.x+1),y)
 ctx.lineTo(w*(l.x+2),y)
-
 ctx.stroke()
 
 })
+
+if(finalPath){
+drawWinningPath()
+}
 
 }
 
@@ -253,9 +274,7 @@ selectedNumber=num
 document.getElementById("selected").innerText=num
 
 for(let i=1;i<=MAX;i++){
-
 document.getElementById("numBtn"+i).classList.remove("selected")
-
 }
 
 document.getElementById("numBtn"+num).classList.add("selected")
@@ -267,7 +286,6 @@ function confirmEntry(){
 let name=document.getElementById("name").value.trim()
 
 if(!name){alert("名前入力");return}
-
 if(selectedNumber===null){alert("番号選択");return}
 
 db.ref("meta/lastPlayer").once("value").then(last=>{
@@ -280,7 +298,7 @@ return
 db.ref("amida/"+selectedNumber).once("value").then(s=>{
 
 if(s.exists()){
-alert("その番号は選ばれています")
+alert("その番号は使われています")
 return
 }
 
@@ -300,22 +318,25 @@ function addLadders(count){
 
 for(let i=0;i<count;i++){
 
-let safe=false
+let attempts=0
 
-while(!safe){
+while(attempts<50){
 
 let y=Math.floor(Math.random()*STEPS)
 let x=Math.floor(Math.random()*(MAX-1))
 
-let exist=ladders.find(l=>l.x===x && l.y===y)
+let exist=ladders.some(l=>l.x===x && l.y===y)
+let left=ladders.some(l=>l.x===x-1 && l.y===y)
+let right=ladders.some(l=>l.x===x+1 && l.y===y)
 
-if(!exist){
+if(!exist && !left && !right){
 
 db.ref("ladders").push({x:x,y:y})
-
-safe=true
+break
 
 }
+
+attempts++
 
 }
 
@@ -329,73 +350,28 @@ let l=snap.val()
 
 ladders.push(l)
 
-animateLadder(l.x,l.y)
-
-})
-
-function animateLadder(x,y){
-
-let w=canvas.width/(MAX+1)
-let h=(BOTTOM-TOP)/STEPS
-
-let start=w*(x+1)
-let end=w*(x+2)
-
-let pos=start
-
-function draw(){
-
-ctx.beginPath()
-
-ctx.moveTo(start,TOP+h*y)
-ctx.lineTo(pos,TOP+h*y)
-
-ctx.stroke()
-
-pos+=6
-
-if(pos<=end){
-
-requestAnimationFrame(draw)
-
-}else{
+ladders.sort((a,b)=>a.y-b.y)
 
 drawFull()
 
-}
-
-}
-
-draw()
-
-}
+})
 
 db.ref("amida").on("value",snap=>{
 
 let data=snap.val()||{}
 
 for(let i=1;i<=MAX;i++){
-
-let btn=document.getElementById("numBtn"+i)
-
-btn.classList.remove("taken")
-
+document.getElementById("numBtn"+i).classList.remove("taken")
 }
 
-Object.keys(data).forEach(num=>{
-
-let btn=document.getElementById("numBtn"+num)
-
-if(btn)btn.classList.add("taken")
-
+Object.keys(data).forEach(n=>{
+document.getElementById("numBtn"+n).classList.add("taken")
 })
 
 showNames(data)
 
 if(Object.keys(data).length===MAX){
-
 finishGame()
-
 }
 
 })
@@ -403,14 +379,19 @@ finishGame()
 function showNames(data){
 
 let row=document.getElementById("names")
-
 row.innerHTML=""
+
+let w=canvas.width/(MAX+1)
 
 for(let i=1;i<=MAX;i++){
 
 let d=document.createElement("div")
 
-d.innerText=data[i]?data[i].name:"?"
+d.className="nameCell"
+
+d.innerText=data[i]?data[i].name:"？"
+
+d.style.left=(w*i)+"px"
 
 row.appendChild(d)
 
@@ -426,7 +407,6 @@ if(s.exists())goal=s.val()
 else{
 
 goal=Math.floor(Math.random()*MAX)
-
 db.ref("result/goal").set(goal)
 
 }
@@ -444,11 +424,16 @@ let path=[]
 
 for(let y=STEPS-1;y>=0;y--){
 
-let left=ladders.find(l=>l.y===y && l.x===x-1)
-let right=ladders.find(l=>l.y===y && l.x===x)
+for(let l of ladders){
 
-if(left)x--
-else if(right)x++
+if(l.y===y){
+
+if(l.x===x){x++}
+else if(l.x===x-1){x--}
+
+}
+
+}
 
 path.push({x:x,y:y})
 
@@ -465,18 +450,42 @@ let path=reversePath(goal)
 let w=canvas.width/(MAX+1)
 let h=(BOTTOM-TOP)/STEPS
 
-let i=0
+let startX=w*(goal+1)
+let startY=BOTTOM+20
+
+let i=-1
 
 function step(){
 
+if(i===-1){
+
+ctx.beginPath()
+ctx.strokeStyle="red"
+ctx.lineWidth=8
+ctx.lineCap="round"
+
+ctx.moveTo(startX,startY)
+ctx.lineTo(startX,BOTTOM)
+
+ctx.stroke()
+
+i++
+setTimeout(step,140)
+return
+
+}
+
 if(i>=path.length){
 
-let winner=path[path.length-1].x
+finalPath=path
 
 let row=document.getElementById("bottomResults")
 
-row.children[winner].innerText="当たり"
-row.children[winner].style.color="red"
+row.children[goal].innerText="当たり"
+row.children[goal].style.color="red"
+row.children[goal].classList.add("vertical")
+
+drawFull()
 
 return
 
@@ -489,23 +498,19 @@ let x=w*(p.x+1)
 let y=TOP+h*p.y
 
 ctx.beginPath()
-
 ctx.strokeStyle="red"
 ctx.lineWidth=8
 ctx.lineCap="round"
 
 ctx.moveTo(x,y+h)
 ctx.lineTo(x,y)
-
 ctx.stroke()
 
 if(next && next.x!==p.x){
 
 ctx.beginPath()
-
 ctx.moveTo(x,y)
 ctx.lineTo(w*(next.x+1),y)
-
 ctx.stroke()
 
 }
@@ -520,17 +525,63 @@ step()
 
 }
 
+function drawWinningPath(){
+
+let w=canvas.width/(MAX+1)
+let h=(BOTTOM-TOP)/STEPS
+
+ctx.strokeStyle="red"
+ctx.lineWidth=8
+ctx.lineCap="round"
+
+let startX=w*(goal+1)
+
+ctx.beginPath()
+ctx.moveTo(startX,BOTTOM)
+ctx.lineTo(startX,BOTTOM-h)
+ctx.stroke()
+
+for(let i=0;i<finalPath.length;i++){
+
+let p=finalPath[i]
+let next=finalPath[i+1]
+
+let x=w*(p.x+1)
+let y=TOP+h*p.y
+
+ctx.beginPath()
+ctx.moveTo(x,y+h)
+ctx.lineTo(x,y)
+ctx.stroke()
+
+if(next && next.x!==p.x){
+
+ctx.beginPath()
+ctx.moveTo(x,y)
+ctx.lineTo(w*(next.x+1),y)
+ctx.stroke()
+
+}
+
+}
+
+}
+
 function initResults(){
 
 let row=document.getElementById("bottomResults")
-
 row.innerHTML=""
+
+let w=canvas.width/(MAX+1)
 
 for(let i=0;i<MAX;i++){
 
 let d=document.createElement("div")
 
+d.className="resultCell"
 d.innerText="？"
+
+d.style.left=(w*(i+1))+"px"
 
 row.appendChild(d)
 
@@ -544,5 +595,3 @@ initResults()
 
 </body>
 </html>
-
-  
