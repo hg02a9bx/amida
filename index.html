@@ -183,70 +183,50 @@ projectId:"amida2"
 }
 
 firebase.initializeApp(firebaseConfig)
-
 const db=firebase.database()
 
 const canvas=document.getElementById("amida")
 const ctx=canvas.getContext("2d")
-
 const TOP=60
 let BOTTOM
 
 function resizeCanvas(){
-
 let container=document.querySelector(".container")
-
 canvas.width=container.clientWidth-20
 canvas.height=500
-
 BOTTOM=canvas.height-20
-
 drawFull()
 initResults()
-
 db.ref("amida").once("value").then(s=>{
 showNames(s.val()||{})
 })
-
 }
 
 window.addEventListener("resize",resizeCanvas)
-
 resizeCanvas()
 
 function drawVertical(){
-
 ctx.clearRect(0,0,canvas.width,canvas.height)
-
 let w=canvas.width/(MAX+1)
-
 for(let i=1;i<=MAX;i++){
-
 ctx.beginPath()
 ctx.moveTo(w*i,TOP)
 ctx.lineTo(w*i,BOTTOM)
 ctx.stroke()
-
 }
-
 }
 
 function drawFull(){
-
 drawVertical()
-
 let w=canvas.width/(MAX+1)
 let h=(BOTTOM-TOP)/STEPS
 
 ladders.forEach(l=>{
-
 let y=TOP+h*l.y
-
 ctx.beginPath()
 ctx.moveTo(w*(l.x+1),y)
 ctx.lineTo(w*(l.x+2),y)
 ctx.stroke()
-
 })
 
 if(redSegments.length){
@@ -260,21 +240,15 @@ ctx.lineTo(s.x2,s.y2)
 ctx.stroke()
 })
 }
-
 }
 
 for(let i=1;i<=MAX;i++){
-
 let b=document.createElement("button")
-
 b.innerText=i
 b.className="numberBtn"
 b.id="numBtn"+i
-
 b.onclick=()=>selectNumber(i)
-
 document.getElementById("buttons").appendChild(b)
-
 }
 
 function selectLines(n){
@@ -283,185 +257,119 @@ document.getElementById("selectedLines").innerText=n
 }
 
 function selectNumber(n){
-
 selectedNumber=n
 document.getElementById("selected").innerText=n
-
 for(let i=1;i<=MAX;i++){
 document.getElementById("numBtn"+i).classList.remove("selected")
 }
-
 document.getElementById("numBtn"+n).classList.add("selected")
-
 }
 
 function confirmEntry(){
-
 let name=document.getElementById("name").value.trim()
-
 if(!name){alert("名前入力");return}
 
 db.ref("amida").once("value").then(snapshot=>{
-
 let data=snapshot.val() || {}
-
 for(let num in data){
-
 if(data[num].name===name){
-
-// 同じ名前が存在 → 下に当たりを表示
-showBottomResult(parseInt(num)-1)
+showBottomResult(parseInt(num)-1, name)
 return
-
 }
-
 }
-
-// 新規参加
 newEntry(name)
-
 })
-
 }
 
 function newEntry(name){
-
-if(selectedNumber===null){
-alert("番号選択")
-return
-}
-
+if(selectedNumber===null){alert("番号選択");return}
 db.ref("amida/"+selectedNumber).once("value").then(s=>{
-
-if(s.exists()){
-alert("その番号は使われています")
-return
-}
-
+if(s.exists()){alert("その番号は使われています");return}
 db.ref("amida/"+selectedNumber).set({name:name})
-
 addLadders(selectedLines)
-
 })
-
 }
 
 function addLadders(count){
-
 for(let i=0;i<count;i++){
-
 let attempts=0
-
 while(attempts<50){
-
 let y=Math.floor(Math.random()*STEPS)
 let x=Math.floor(Math.random()*(MAX-1))
-
 let exist=ladders.some(l=>l.x===x && l.y===y)
 let left=ladders.some(l=>l.x===x-1 && l.y===y)
 let right=ladders.some(l=>l.x===x+1 && l.y===y)
-
 if(!exist && !left && !right){
-
 db.ref("ladders").push({x:x,y:y})
 break
-
 }
-
 attempts++
-
 }
-
 }
-
 }
 
 db.ref("ladders").on("child_added",snap=>{
-
 let l=snap.val()
-
 ladders.push(l)
-
 ladders.sort((a,b)=>a.y-b.y)
-
 drawFull()
-
 })
 
 db.ref("amida").on("value",snap=>{
-
 let data=snap.val()||{}
-
 for(let i=1;i<=MAX;i++){
 document.getElementById("numBtn"+i).classList.remove("taken")
 }
-
 Object.keys(data).forEach(n=>{
 document.getElementById("numBtn"+n).classList.add("taken")
 })
-
 showNames(data)
-
 if(Object.keys(data).length===MAX){
 finishGame()
 }
-
 })
 
 function showNames(data){
-
 let row=document.getElementById("names")
 row.innerHTML=""
-
 let w=canvas.width/(MAX+1)
-
 for(let i=1;i<=MAX;i++){
-
 let d=document.createElement("div")
-
 d.className="nameCell"
 d.innerText=data[i]?data[i].name:"？"
 d.style.left=(w*i)+"px"
-
 row.appendChild(d)
-
 }
-
 }
 
 function finishGame(){
-
 db.ref("meta/goal").once("value").then(s=>{
 if(s.exists()){
 goal=s.val()
+showBottomResult(goal, null) // 表示だけ先に
 startAnimation()
 }else{
 goal=Math.floor(Math.random()*MAX)
 db.ref("meta/goal").set(goal)
+showBottomResult(goal, null) // 表示だけ先に
 startAnimation()
 }
 })
-
 }
 
 function startAnimation(){
-
 let w=canvas.width/(MAX+1)
 let h=(BOTTOM-TOP)/STEPS
-
 let x=goal
 let y=BOTTOM+20
 
 function step(level){
-
 if(level<0){
 winnerColumn=x
 showWinner()
 return
 }
-
 let levelY=TOP+h*level
-
 ctx.strokeStyle="red"
 ctx.lineWidth=8
 ctx.lineCap="round"
@@ -469,7 +377,6 @@ ctx.beginPath()
 ctx.moveTo(w*(x+1),y)
 ctx.lineTo(w*(x+1),levelY)
 ctx.stroke()
-
 redSegments.push({x1:w*(x+1),y1:y,x2:w*(x+1),y2:levelY})
 
 let right=ladders.find(l=>l.x===x && l.y===level)
@@ -492,59 +399,40 @@ x--
 }
 
 y=levelY
-
 setTimeout(()=>step(level-1),120)
-
 }
 
 step(STEPS-1)
-
 }
 
 function showWinner(){
-
 db.ref("amida/"+(winnerColumn+1)).once("value").then(s=>{
-
 let name=s.val()?.name || ""
-
-document.getElementById("winner").innerText="当たり: "+name
-
+document.getElementById("winner").innerText="当たり: "+name+"さん"
 })
-
 let row=document.getElementById("bottomResults")
-
 row.children[goal].innerText="当たり"
 row.children[goal].style.color="red"
-
 }
 
-function showBottomResult(column){
-
+function showBottomResult(column, name){
 let row=document.getElementById("bottomResults")
-
+if(name) name = name+"さん"
 row.children[column].innerText="当たり"
 row.children[column].style.color="red"
-
 }
 
 function initResults(){
-
 let row=document.getElementById("bottomResults")
 row.innerHTML=""
-
 let w=canvas.width/(MAX+1)
-
 for(let i=0;i<MAX;i++){
-
 let d=document.createElement("div")
 d.className="resultCell"
 d.innerText="？"
 d.style.left=(w*(i+1))+"px"
-
 row.appendChild(d)
-
 }
-
 }
 
 initResults()
