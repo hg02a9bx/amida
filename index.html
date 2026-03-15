@@ -267,17 +267,30 @@ document.getElementById("numBtn"+n).classList.add("selected")
 
 function confirmEntry(){
 let name=document.getElementById("name").value.trim()
-if(!name){alert("名前入力");return}
+if(!name){ alert("名前入力"); return }
 
 db.ref("amida").once("value").then(snapshot=>{
-let data=snapshot.val() || {}
+let data = snapshot.val() || {}
+
 for(let num in data){
 if(data[num].name===name){
 showBottomResult(parseInt(num)-1, name)
 return
 }
 }
+
+// 最初の参加者なら当たりを決定
+db.ref("meta/goal").once("value").then(goalSnap=>{
+if(!goalSnap.exists()){
+let firstGoal = Math.floor(Math.random() * MAX)
+db.ref("meta/goal").set(firstGoal)
+goal = firstGoal
+} else {
+goal = goalSnap.val()
+}
+showBottomResult(goal, null)
 newEntry(name)
+})
 })
 }
 
@@ -344,16 +357,8 @@ row.appendChild(d)
 
 function finishGame(){
 db.ref("meta/goal").once("value").then(s=>{
-if(s.exists()){
-goal=s.val()
-showBottomResult(goal, null) // 表示だけ先に
+goal = s.val()
 startAnimation()
-}else{
-goal=Math.floor(Math.random()*MAX)
-db.ref("meta/goal").set(goal)
-showBottomResult(goal, null) // 表示だけ先に
-startAnimation()
-}
 })
 }
 
