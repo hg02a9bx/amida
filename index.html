@@ -9,28 +9,24 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
 <style>
-
 body{
 font-family:sans-serif;
 text-align:center;
 background:#f2f2f2;
 margin:0;
 }
-
 .container{
 background:white;
 max-width:900px;
 margin:auto;
 padding:20px;
 }
-
 input{
 font-size:18px;
 padding:10px;
 width:70%;
 max-width:300px;
 }
-
 #lineButtons button{
 font-size:20px;
 width:70px;
@@ -41,7 +37,6 @@ border-radius:10px;
 background:#2196F3;
 color:white;
 }
-
 .numberBtn{
 font-size:18px;
 height:55px;
@@ -52,16 +47,13 @@ border-radius:10px;
 background:#4CAF50;
 color:white;
 }
-
 .numberBtn.selected{
 background:#2196F3;
 }
-
 .numberBtn.taken{
 background:#999;
 pointer-events:none;
 }
-
 .confirmBtn{
 font-size:26px;
 height:70px;
@@ -73,24 +65,20 @@ color:white;
 font-weight:bold;
 margin-top:15px;
 }
-
 #buttons{
 display:flex;
 flex-wrap:wrap;
 justify-content:center;
 }
-
 canvas{
 width:100%;
 border:1px solid #ccc;
 margin-top:10px;
 }
-
 .nameRow{
 position:relative;
 height:80px;
 }
-
 .nameCell{
 position:absolute;
 transform:translateX(-50%);
@@ -99,13 +87,11 @@ text-orientation:upright;
 font-weight:bold;
 font-size:18px;
 }
-
 .resultRow{
 position:relative;
 height:60px;
 margin-top:10px;
 }
-
 .resultCell{
 position:absolute;
 transform:translateX(-50%);
@@ -114,7 +100,6 @@ text-orientation:upright;
 font-weight:bold;
 font-size:18px;
 }
-
 #winner{
 margin-top:20px;
 font-size:34px;
@@ -122,49 +107,38 @@ font-weight:bold;
 color:red;
 height:40px;
 }
-
 </style>
 </head>
 
 <body>
-
 <h2>町内会班長決めあみだくじ</h2>
-
 <div class="container">
 
 <input id="name" placeholder="名前">
 
 <p>横線追加</p>
-
 <div id="lineButtons">
 <button onclick="selectLines(0)">0</button>
 <button onclick="selectLines(1)">1</button>
 <button onclick="selectLines(2)">2</button>
 <button onclick="selectLines(3)">3</button>
 </div>
-
 <p>横線: <span id="selectedLines">0</span></p>
 
 <p>番号</p>
-
 <div id="buttons"></div>
-
 <p>選択番号: <span id="selected">なし</span></p>
 
 <button class="confirmBtn" onclick="confirmEntry()">決定</button>
 
 <div id="names" class="nameRow"></div>
-
 <canvas id="amida"></canvas>
-
 <div id="winner"></div>
-
 <div id="bottomResults" class="resultRow"></div>
 
 </div>
 
 <script>
-
 const MAX=13
 const STEPS=15
 
@@ -181,7 +155,6 @@ authDomain:"amida2.firebaseapp.com",
 databaseURL:"https://amida2-default-rtdb.firebaseio.com",
 projectId:"amida2"
 }
-
 firebase.initializeApp(firebaseConfig)
 const db=firebase.database()
 
@@ -201,7 +174,6 @@ db.ref("amida").once("value").then(s=>{
 showNames(s.val()||{})
 })
 }
-
 window.addEventListener("resize",resizeCanvas)
 resizeCanvas()
 
@@ -220,7 +192,6 @@ function drawFull(){
 drawVertical()
 let w=canvas.width/(MAX+1)
 let h=(BOTTOM-TOP)/STEPS
-
 ladders.forEach(l=>{
 let y=TOP+h*l.y
 ctx.beginPath()
@@ -228,7 +199,6 @@ ctx.moveTo(w*(l.x+1),y)
 ctx.lineTo(w*(l.x+2),y)
 ctx.stroke()
 })
-
 if(redSegments.length){
 ctx.strokeStyle="red"
 ctx.lineWidth=8
@@ -275,10 +245,10 @@ let data = snapshot.val() || {}
 let found = Object.keys(data).find(num => data[num].name === name)
 
 if(found){
-    // 再入力時：棒の下に本当の当たり表示のみ
+    // 再入力時は下に本当の当たりだけ表示
     db.ref("meta/goal").once("value").then(goalSnap=>{
         let realGoal = goalSnap.val()
-        showBottomResult(realGoal, null) // 名前は表示しない
+        showBottomResult(realGoal, null)
     })
     return
 }
@@ -292,8 +262,6 @@ goal = firstGoal
 } else {
 goal = goalSnap.val()
 }
-
-showBottomResult(goal, null) // 下に当たり表示
 newEntry(name)
 })
 })
@@ -342,8 +310,14 @@ Object.keys(data).forEach(n=>{
 document.getElementById("numBtn"+n).classList.add("taken")
 })
 showNames(data)
+
 if(Object.keys(data).length===MAX){
-finishGame()
+    // 全員入力完了時のみ下の当たりを固定表示
+    db.ref("meta/goal").once("value").then(goalSnap=>{
+        goal = goalSnap.val()
+        showBottomResult(goal, null)
+        finishGame()
+    })
 }
 })
 
